@@ -8,10 +8,11 @@ use std::io::{Write, stdout};
 fn main() {
     let mut stdout = stdout();
 
+    execute!(stdout, terminal::EnterAlternateScreen).unwrap();
+    
     stdout.execute(terminal::Clear(terminal::ClearType::All)).unwrap();
 
-    execute!(stdout, terminal::EnterAlternateScreen).unwrap();
-    queue!(stdout, style::SetBackgroundColor(style::Color::Blue), style::SetForegroundColor(style::Color::Red));
+    queue!(stdout, style::SetForegroundColor(style::Color::Red));
 
     stdout.flush().unwrap();
 
@@ -23,8 +24,9 @@ fn main() {
         }
     }
 
-    queue!(stdout, cursor::MoveTo(60, 10));
+    queue!(stdout, cursor::MoveTo(60, 10), cursor::Hide);
 
+    
     stdout.flush().unwrap();
 }
 

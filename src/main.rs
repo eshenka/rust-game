@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crossterm::cursor;
 use crossterm::event;
 use crossterm::event::read;
@@ -26,6 +28,7 @@ enum Direction {
 }
 
 #[derive(PartialEq)]
+#[derive(Debug)]
 enum Maze {
     Wall,
     Path,
@@ -39,38 +42,55 @@ struct Point {
 
 fn move_cursor(
     stdout: &mut io::Stdout,
-    x: &mut u16,
-    y: &mut u16,
+    x_cursor: &mut u16,
+    y_cursor: &mut u16,
     dir: Direction,
-    maze: &Vec<Point>,
+    maze: &Vec<Vec<Point>>,
 ) -> std::io::Result<()> {
+    let x = (*x_cursor - 60) as usize;
+    let y = (*y_cursor - 10) as usize;
+
     match dir {
         Direction::Right => {
-            if (*x + 1 < UP_X_BOUND)
-                && maze[((*y - 11) * 25 + (*x - 61 + 1)) as usize].maze == Maze::Path
-            {
-                *x += 1;
-                stdout.execute(cursor::MoveRight(1))?;
+            if x + 1 >= 25 {
+                return Ok(());
             }
-        }
 
+            if maze[y][x + 1].maze == Maze::Path {
+                *x_cursor += 1;
+                stdout.execute(cursor::MoveRight(1))?;
+            } 
+        }
+    
         Direction::Left => {
-            if *x - 1 > LOW_X_BOUND {
-                *x -= 1;
+            if x - 1 <= 0 {
+                return Ok(());
+            }
+
+            if maze[y][x - 1].maze == Maze::Path {
+                *x_cursor -= 1;
                 stdout.execute(cursor::MoveLeft(1))?;
             }
         }
 
         Direction::Up => {
-            if *y - 1 > LOW_Y_BOUND {
-                *y -= 1;
+            if y - 1 <= 0 {
+                return Ok(());
+            }
+
+            if maze[y - 1][x].maze == Maze::Path {
+                *y_cursor -= 1;
                 stdout.execute(cursor::MoveUp(1))?;
             }
         }
 
         Direction::Down => {
-            if *y + 1 < UP_Y_BOUND {
-                *y += 1;
+            if y + 1 >= 9 {
+                return Ok(());
+            }
+
+            if maze[y + 1][x].maze == Maze::Path {
+                *y_cursor += 1;
                 stdout.execute(cursor::MoveDown(1))?;
             }
         }
@@ -123,7 +143,7 @@ fn main() -> io::Result<()> {
 
     stdout.flush()?;
 
-    let mut maze: Vec<Point> = Vec::with_capacity(MAZE_SIZE as usize * MAZE_SIZE as usize);
+    let mut maze: Vec<Vec<Point>> = Vec::with_capacity(25 * 9);
 
     let enter = Point {
         x: 0,
@@ -137,36 +157,46 @@ fn main() -> io::Result<()> {
         maze: Maze::Path,
     };
 
-    for x in 0..25 {
-        for y in 0..9 {
+    for y in 0..9 {
+        let mut string: Vec<Point> = Vec::new();
+        for x in 0..25 {
             if (x == 0 || x == 24 || y == 0 || y == 8)
                 && !(x == enter.x && y == enter.y)
-                && !(x == exit.x && y == exit.y)
-            {
-                maze.push(Point {
+                && !(x == exit.x && y == exit.y) {
+
+                string.push(Point {
                     x,
-                    y,
+                    y, 
                     maze: Maze::Wall,
                 });
 
                 queue!(
                     stdout,
-                    cursor::MoveTo(60 + x, 10 + y),
+                    cursor::MoveTo(x_cursor + x, y_cursor + y),
                     style::PrintStyledContent("0".blue())
                 )?;
             } else {
-                maze.push(Point {
+                string.push(Point {
                     x,
-                    y,
+                    y, 
                     maze: Maze::Path,
                 });
             }
+        
         }
+        maze.push(string);
+
     }
 
-    execute!(stdout, cursor::MoveTo(x_cursor, y_cursor + 1))?;
+    y_cursor += 1;
+    execute!(stdout, cursor::MoveTo(x_cursor, y_cursor))?;
 
     loop {
+        if x_cursor == exit.x + 60 && y_cursor == exit.y + 10 {
+            println!("Hhhh");
+            break;
+        }
+
         match read()? {
             Event::Key(KeyEvent { code, .. }) => match code {
                 event::KeyCode::Left => {
@@ -207,6 +237,10 @@ fn main() -> io::Result<()> {
                         Direction::Down,
                         &maze,
                     )?;
+                }
+
+                event::KeyCode::Enter => {
+                    println!("{x_cursor} {y_cursor}");
                 }
 
                 event::KeyCode::Esc => break,

@@ -149,6 +149,8 @@ fn randomize(grid: &mut Vec<Vec<Cell>>, current_cell_index: (usize, usize)) {
     let y = current_cell_index.0;
     let x = current_cell_index.1;
 
+    grid[y][x].visited = true;
+
     let mut neighbor_cells = get_all_unvisited_cells_indeces(grid, current_cell_index);
     
     let mut rng = thread_rng();

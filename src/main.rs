@@ -109,11 +109,19 @@ fn move_cursor(
     Ok(())
 }
 
-fn exiting(stdout: &mut io::Stdout) -> std::io::Result<()> {
+fn exiting(stdout: &mut io::Stdout, grid: &Vec<Vec<Cell>>) -> std::io::Result<()> {
     terminal::disable_raw_mode()?;
 
     stdout.execute(terminal::LeaveAlternateScreen)?;
     stdout.execute(style::SetForegroundColor(style::Color::Reset))?;
+
+    for y in 0..4 {
+        for x in 0..12 {
+            println!("{} {} {} {}", grid[y][x].connections.0, grid[y][x].connections.1, grid[y][x].connections.2, grid[y][x].connections.3);
+        }
+        println!("####################");
+    }
+
 
     Ok(())
 }
@@ -162,18 +170,19 @@ fn randomize(grid: &mut Vec<Vec<Cell>>, current_cell_index: (usize, usize)) {
         let next_y = next_cell_index.0;
         let next_x = next_cell_index.1;
 
-        let x = x;
-        let y = y;
+        //if grid[next_y][next_x].visited {
+        //    continue;
+        //}
 
         match x as i32 - next_x as i32 {
             -1 => {
-                grid[y][x].connections.0 = true;
-                grid[y][next_x].connections.2 = true;
+                grid[y][x].connections.2 = true;
+                grid[y][next_x].connections.0 = true;
             },
 
             1 => {
-                grid[y][x].connections.2 = true;
-                grid[y][next_x].connections.0 = true;
+                grid[y][x].connections.0 = true;
+                grid[y][next_x].connections.2 = true;
             },
 
             _ => (),
@@ -181,13 +190,13 @@ fn randomize(grid: &mut Vec<Vec<Cell>>, current_cell_index: (usize, usize)) {
 
         match y as i32 - next_y as i32 {
             -1 => {
-                grid[y][x].connections.1 = true;
-                grid[next_y][x].connections.3 = true;
+                grid[y][x].connections.3 = true;
+                grid[next_y][x].connections.1 = true;
             },
 
             1 => {
-                grid[y][x].connections.3 = true;
-                grid[next_y][x].connections.1 = true;
+                grid[y][x].connections.1 = true;
+                grid[next_y][x].connections.3 = true;
             },
 
             _ => (),
@@ -277,7 +286,6 @@ fn main() -> io::Result<()> {
 
     }
 
-
     let mut grid: Vec<Vec<Cell>> = Vec::new();
 
     for y in 0..4 {
@@ -296,63 +304,63 @@ fn main() -> io::Result<()> {
 
     randomize(&mut grid, (0, 0));
 
-    for x in 0..12 as usize {
-        for y in 0..4 as usize {
-            let x_double: u16 = (x * 2) as u16;
-            let y_double: u16 = (y * 2) as u16;
+    for y in 0..4 as usize {
+        for x in 0..12 as usize {
+            let x_global: u16 = (x * 2 + 1) as u16;
+            let y_global: u16 = (y * 2 + 1) as u16;
 
             if !grid[y][x].connections.0 {
-                maze[y_double as usize][x_double as usize] = Point {
-                    x: x_double,
-                    y: y_double, 
+                maze[y_global as usize][x_global as usize - 1] = Point {
+                    x: x_global - 1,
+                    y: y_global, 
                     maze: Maze::Wall,
                 };
 
                 queue!(
                     stdout, 
-                    cursor::MoveTo(x_cursor + x_double, y_cursor + y_double),
+                    cursor::MoveTo(x_cursor + x_global - 1, y_cursor + y_global),
                     style::PrintStyledContent("0".blue())
                 )?;
             }
 
             if !grid[y][x].connections.1 {
-                maze[y_double as usize][x_double as usize] = Point {
-                    x: x_double,
-                    y: y_double,
+                maze[y_global as usize - 1][x_global as usize] = Point {
+                    x: x_global,
+                    y: y_global - 1,
                     maze: Maze::Wall,
                 };
 
                 queue!(
                     stdout,
-                    cursor::MoveTo(x_cursor + x_double, y_cursor + y_double),
+                    cursor::MoveTo(x_cursor + x_global, y_cursor + y_global - 1),
                     style::PrintStyledContent("0".blue())
                 )?;
             }
 
             if !grid[y][x].connections.2 {
-                maze[y_double as usize][x_double as usize] = Point {
-                    x: x_double,
-                    y: y_double,
+                maze[y_global as usize][x_global as usize + 1] = Point {
+                    x: x_global + 1,
+                    y: y_global,
                     maze: Maze::Wall,
                 };
 
                 queue!(
                     stdout,
-                    cursor::MoveTo(x_cursor + x_double, y_cursor + y_double),
+                    cursor::MoveTo(x_cursor + x_global + 1, y_cursor + y_global),
                     style::PrintStyledContent("0".blue())
                 )?;
             }
 
             if grid[y][x].connections.3 {
-                maze[y_double as usize][x_double as usize] = Point {
-                    x: x_double,
-                    y: y_double,
+                maze[y_global as usize + 1][x_global as usize] = Point {
+                    x: x_global,
+                    y: y_global + 1,
                     maze: Maze::Wall,
                 };
 
                 queue!(
                     stdout,
-                    cursor::MoveTo(x_cursor + x_double, y_cursor + y_double),
+                    cursor::MoveTo(x_cursor + x_global, y_cursor + y_global + 1),
                     style::PrintStyledContent("0".blue())
                 )?;
             }
@@ -360,7 +368,8 @@ fn main() -> io::Result<()> {
     }
 
     stdout.flush()?;
-    
+
+
     x_cursor += 1;
     y_cursor += 1;
     execute!(stdout, cursor::MoveTo(x_cursor, y_cursor))?;
@@ -426,5 +435,5 @@ fn main() -> io::Result<()> {
         }
     }
 
-    exiting(&mut stdout)
+    exiting(&mut stdout, &grid)
 }

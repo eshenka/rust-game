@@ -45,7 +45,7 @@ struct Point {
 }
 
 struct Cell {
-    boarders: (bool, bool, bool, bool),
+    borders: (bool, bool, bool, bool),
     connections: (bool, bool, bool, bool),
     visited: bool,
 }
@@ -117,7 +117,8 @@ fn exiting(stdout: &mut io::Stdout, grid: &Vec<Vec<Cell>>) -> std::io::Result<()
 
     for y in 0..4 {
         for x in 0..12 {
-            println!("{} {} {} {}", grid[y][x].connections.0, grid[y][x].connections.1, grid[y][x].connections.2, grid[y][x].connections.3);
+            //println!("{} {} {} {}", grid[y][x].connections.0, grid[y][x].connections.1, grid[y][x].connections.2, grid[y][x].connections.3);
+            println!("{}", grid[y][x].visited);
         }
         println!("####################");
     }
@@ -126,31 +127,40 @@ fn exiting(stdout: &mut io::Stdout, grid: &Vec<Vec<Cell>>) -> std::io::Result<()
     Ok(())
 }
 
-fn get_all_unvisited_cells_indeces(grid: &mut Vec<Vec<Cell>>, index: (usize, usize)) -> Vec<(usize, usize)> {
+fn get_heighbors(grid: &Vec<Vec<Cell>>, cell: (usize, usize)) -> Vec<(usize, usize)> {
     let mut cells: Vec<(usize, usize)> = Vec::new();
 
-    let y = index.0;
-    let x = index.1;
-
+    let y = cell.0;
+    let x = cell.1;
+    
     let cur_cell = &grid[y][x];
 
-    if !cur_cell.boarders.0 && !grid[y][x - 1].visited {
+    if !cur_cell.borders.0 {
         cells.push((y, x - 1));
     }
 
-    if !cur_cell.boarders.1 && !grid[y - 1][x].visited {
+    if !cur_cell.borders.1 {
         cells.push((y - 1, x));
-    }
+    }   
 
-    if !cur_cell.boarders.2 && !grid[y][x + 1].visited {
+    if !cur_cell.borders.2 {
         cells.push((y, x + 1));
     }
 
-    if !cur_cell.boarders.3 && !grid[y + 1][x].visited {
+    if !cur_cell.borders.3 {
         cells.push((y + 1, x));
     }
 
     cells
+}
+
+fn find_unvisited_neighbor<'a>(grid: &'a Vec<Vec<Cell>>, neighbors: &'a mut Vec<(usize, usize)>) -> Option<&'a (usize, usize)> {
+    let mut neighbors: Vec<_> = neighbors.iter().filter(|(y, x)| !grid[*y][*x].visited).collect();
+
+    let mut rng = thread_rng();
+    neighbors.shuffle(&mut rng);
+
+    return neighbors.pop()
 }
 
 fn randomize(grid: &mut Vec<Vec<Cell>>, current_cell_index: (usize, usize)) {
@@ -159,51 +169,86 @@ fn randomize(grid: &mut Vec<Vec<Cell>>, current_cell_index: (usize, usize)) {
 
     grid[y][x].visited = true;
 
-    let mut neighbor_cells = get_all_unvisited_cells_indeces(grid, current_cell_index);
-    
+    let mut neighbor_cells = get_heighbors(grid, current_cell_index);
+
     let mut rng = thread_rng();
     neighbor_cells.shuffle(&mut rng);
 
+//     for (next_y, next_x) in neighbor_cells {
+//         if grid[next_y][next_x].visited {
+//             continue;
+//         }
+//
+//         match x as i32 - next_x as i32 {
+//             -1 => {
+//                 grid[y][x].connections.2 = true;
+//                 grid[y][next_x].connections.0 = true;
+//             },
+//
+//             1 => {
+//                 grid[y][x].connections.0 = true;
+//                 grid[y][next_x].connections.2 = true;
+//             },
+//
+//             _ => {
+//                 grid[y][x].visited = true;
+//             },
+//         };
+//
+//         match y as i32 - next_y as i32 {
+//             -1 => {
+//                 grid[y][x].connections.3 = true;
+//                 grid[next_y][x].connections.1 = true;
+//             },
+//
+//             1 => {
+//                 grid[y][x].connections.1 = true;
+//                 grid[next_y][x].connections.3 = true;
+//             },
+//
+//             _ => {
+//                 grid[y][x].visited = true;
+//             },
+//         };
+//
+//         return randomize(grid, (next_y, next_x));
+//     }
     while neighbor_cells.len() != 0 {
-        let next_cell_index = neighbor_cells.pop().unwrap();
+        let next_cell = find_unvisited_neighbor(grid, &mut neighbor_cells);
 
-        let next_y = next_cell_index.0;
-        let next_x = next_cell_index.1;
+        if let Some((next_y, next_x)) = next_cell {
+            match x as i32 - *next_x as i32 {
+                1 => {
+                    grid[y][x].connections.0 = true;
+                    grid[y][*next_x].connections.2 = true;
+                },
 
-        //if grid[next_y][next_x].visited {
-        //    continue;
-        //}
+                -1 => {
+                    grid[y][x].connections.2 = true;
+                    grid[y][*next_x].connections.0 = true;
+                },
 
-        match x as i32 - next_x as i32 {
-            -1 => {
-                grid[y][x].connections.2 = true;
-                grid[y][next_x].connections.0 = true;
-            },
+                _ => {},
+            } 
 
-            1 => {
-                grid[y][x].connections.0 = true;
-                grid[y][next_x].connections.2 = true;
-            },
+            match y as i32 - *next_y as i32 {
+                1 => {
+                    grid[y][x].connections.1 = true;
+                    grid[*next_y][x].connections.3 = true;
+                },
 
-            _ => (),
+                -1 => {
+                    grid[y][x].connections.3 = true;
+                    grid[*next_y][x].connections.1 = true;
+                },
+
+                _ => {},
+            }
+
+            randomize(grid, (*next_y, *next_x))
         }
-
-        match y as i32 - next_y as i32 {
-            -1 => {
-                grid[y][x].connections.3 = true;
-                grid[next_y][x].connections.1 = true;
-            },
-
-            1 => {
-                grid[y][x].connections.1 = true;
-                grid[next_y][x].connections.3 = true;
-            },
-
-            _ => (),
-        }
-
-        return randomize(grid, next_cell_index);
     }
+
 }
 
 fn main() -> io::Result<()> {
@@ -250,7 +295,7 @@ fn main() -> io::Result<()> {
     };
 
     let exit = Point {
-        x: 24,
+        x: 23,
         y: 7,
         maze: Maze::Path,
     };
@@ -293,7 +338,7 @@ fn main() -> io::Result<()> {
 
         for x in 0..12 {
             string.push(Cell {
-                boarders: (x == 0, y == 0, x == 11, y == 3),
+                borders: (x == 0, y == 0, x == 11, y == 3),
                 connections: (false, false, false, false),
                 visited: false,
             });
@@ -351,7 +396,7 @@ fn main() -> io::Result<()> {
                 )?;
             }
 
-            if grid[y][x].connections.3 {
+            if !grid[y][x].connections.3 {
                 maze[y_global as usize + 1][x_global as usize] = Point {
                     x: x_global,
                     y: y_global + 1,

@@ -174,79 +174,45 @@ fn randomize(grid: &mut Vec<Vec<Cell>>, current_cell_index: (usize, usize)) {
     let mut rng = thread_rng();
     neighbor_cells.shuffle(&mut rng);
 
-//     for (next_y, next_x) in neighbor_cells {
-//         if grid[next_y][next_x].visited {
-//             continue;
-//         }
-//
-//         match x as i32 - next_x as i32 {
-//             -1 => {
-//                 grid[y][x].connections.2 = true;
-//                 grid[y][next_x].connections.0 = true;
-//             },
-//
-//             1 => {
-//                 grid[y][x].connections.0 = true;
-//                 grid[y][next_x].connections.2 = true;
-//             },
-//
-//             _ => {
-//                 grid[y][x].visited = true;
-//             },
-//         };
-//
-//         match y as i32 - next_y as i32 {
-//             -1 => {
-//                 grid[y][x].connections.3 = true;
-//                 grid[next_y][x].connections.1 = true;
-//             },
-//
-//             1 => {
-//                 grid[y][x].connections.1 = true;
-//                 grid[next_y][x].connections.3 = true;
-//             },
-//
-//             _ => {
-//                 grid[y][x].visited = true;
-//             },
-//         };
-//
-//         return randomize(grid, (next_y, next_x));
-//     }
-    while neighbor_cells.len() != 0 {
-        let next_cell = find_unvisited_neighbor(grid, &mut neighbor_cells);
-
-        if let Some((next_y, next_x)) = next_cell {
-            match x as i32 - *next_x as i32 {
-                1 => {
-                    grid[y][x].connections.0 = true;
-                    grid[y][*next_x].connections.2 = true;
-                },
-
-                -1 => {
-                    grid[y][x].connections.2 = true;
-                    grid[y][*next_x].connections.0 = true;
-                },
-
-                _ => {},
-            } 
-
-            match y as i32 - *next_y as i32 {
-                1 => {
-                    grid[y][x].connections.1 = true;
-                    grid[*next_y][x].connections.3 = true;
-                },
-
-                -1 => {
-                    grid[y][x].connections.3 = true;
-                    grid[*next_y][x].connections.1 = true;
-                },
-
-                _ => {},
-            }
-
-            randomize(grid, (*next_y, *next_x))
+    for (next_y, next_x) in neighbor_cells {
+        if grid[next_y][next_x].visited {
+            continue;
         }
+
+        match x as i32 - next_x as i32 {
+            -1 => {
+                grid[y][x].connections.2 = true;
+                grid[y][next_x].connections.0 = true;
+            },
+
+            1 => {
+                grid[y][x].connections.0 = true;
+                grid[y][next_x].connections.2 = true;
+            },
+
+            _ => {
+                grid[y][x].visited = true;
+            },
+        };
+
+        match y as i32 - next_y as i32 {
+            -1 => {
+                grid[y][x].connections.3 = true;
+                grid[next_y][x].connections.1 = true;
+            },
+
+            1 => {
+                grid[y][x].connections.1 = true;
+                grid[next_y][x].connections.3 = true;
+            },
+
+            _ => {
+                grid[y][x].visited = true;
+            },
+        };
+
+        randomize(grid, (next_y, next_x));
+        
     }
 
 }

@@ -8,13 +8,13 @@ use crossterm::event::KeyEvent;
 use crossterm::style;
 use crossterm::style::Stylize;
 use crossterm::terminal;
+use crossterm::terminal::ClearType;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::{execute, queue, ExecutableCommand};
 
 use std::io;
 use std::io::{stdout, Write};
 
-use rand::thread_rng;
 use rand::seq::SliceRandom;
 
 const UP_X_BOUND: u16 = 150 - 1;
@@ -31,8 +31,7 @@ enum Direction {
     Down,
 }
 
-#[derive(PartialEq)]
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 enum Maze {
     Wall,
     Path,
@@ -45,7 +44,6 @@ struct Point {
 }
 
 struct Cell {
-    borders: (bool, bool, bool, bool),
     connections: (bool, bool, bool, bool),
     visited: bool,
 }
@@ -69,9 +67,9 @@ fn move_cursor(
             if maze[y][x + 1].maze == Maze::Path {
                 *x_cursor += 1;
                 stdout.execute(cursor::MoveRight(1))?;
-            } 
+            }
         }
-    
+
         Direction::Left => {
             if x - 1 <= 0 {
                 return Ok(());
@@ -112,143 +110,76 @@ fn move_cursor(
 fn exiting(stdout: &mut io::Stdout, grid: &Vec<Vec<Cell>>) -> std::io::Result<()> {
     terminal::disable_raw_mode()?;
 
-    stdout.execute(terminal::LeaveAlternateScreen)?;
-    stdout.execute(style::SetForegroundColor(style::Color::Reset))?;
+    execute!(
+        stdout,
+        terminal::LeaveAlternateScreen,
+        style::SetForegroundColor(style::Color::Reset)
+    )?;
 
     for y in 0..4 {
         for x in 0..12 {
-            //println!("{} {} {} {}", grid[y][x].connections.0, grid[y][x].connections.1, grid[y][x].connections.2, grid[y][x].connections.3);
             println!("{}", grid[y][x].visited);
         }
         println!("####################");
     }
 
-
     Ok(())
 }
 
-fn get_heighbors(grid: &Vec<Vec<Cell>>, cell: (usize, usize)) -> Vec<(usize, usize)> {
+fn get_heighbors((y, x): (usize, usize)) -> Vec<(usize, usize)> {
     let mut cells: Vec<(usize, usize)> = Vec::new();
 
-    let y = cell.0;
-    let x = cell.1;
-    
-    let cur_cell = &grid[y][x];
-
-    if !cur_cell.borders.0 {
+    if x != 0 {
         cells.push((y, x - 1));
     }
 
-    if !cur_cell.borders.1 {
+    if y != 0 {
         cells.push((y - 1, x));
-    }   
+    }
 
-    if !cur_cell.borders.2 {
+    if x != 11 {
         cells.push((y, x + 1));
     }
 
-    if !cur_cell.borders.3 {
-        cells.push((y + 1, x));
+    if y != 3 {
+        cells.push((y + 1, 3));
     }
 
     cells
 }
 
-fn find_unvisited_neighbor<'a>(grid: &'a Vec<Vec<Cell>>, neighbors: &'a mut Vec<(usize, usize)>) -> Option<&'a (usize, usize)> {
-    let mut neighbors: Vec<_> = neighbors.iter().filter(|(y, x)| !grid[*y][*x].visited).collect();
-
-    let mut rng = thread_rng();
-    neighbors.shuffle(&mut rng);
-
-    return neighbors.pop()
-}
-
-fn randomize(grid: &mut Vec<Vec<Cell>>, current_cell_index: (usize, usize)) {
-    let y = current_cell_index.0;
-    let x = current_cell_index.1;
-
+fn randomize(grid: &mut Vec<Vec<Cell>>, (y, x): (usize, usize)) {
     grid[y][x].visited = true;
 
-    let mut neighbor_cells = get_heighbors(grid, current_cell_index);
+    let neighbor_cells = {
+        let mut cells = get_heighbors((y, x));
+        cells.shuffle(&mut rand::thread_rng());
+        cells
+    };
 
-    let mut rng = thread_rng();
-    neighbor_cells.shuffle(&mut rng);
-
-//     for (next_y, next_x) in neighbor_cells {
-//         if grid[next_y][next_x].visited {
-//             continue;
-//         }
-//
-//         match x as i32 - next_x as i32 {
-//             -1 => {
-//                 grid[y][x].connections.2 = true;
-//                 grid[y][next_x].connections.0 = true;
-//             },
-//
-//             1 => {
-//                 grid[y][x].connections.0 = true;
-//                 grid[y][next_x].connections.2 = true;
-//             },
-//
-//             _ => {
-//                 grid[y][x].visited = true;
-//             },
-//         };
-//
-//         match y as i32 - next_y as i32 {
-//             -1 => {
-//                 grid[y][x].connections.3 = true;
-//                 grid[next_y][x].connections.1 = true;
-//             },
-//
-//             1 => {
-//                 grid[y][x].connections.1 = true;
-//                 grid[next_y][x].connections.3 = true;
-//             },
-//
-//             _ => {
-//                 grid[y][x].visited = true;
-//             },
-//         };
-//
-//         return randomize(grid, (next_y, next_x));
-//     }
-    while neighbor_cells.len() != 0 {
-        let next_cell = find_unvisited_neighbor(grid, &mut neighbor_cells);
-
-        if let Some((next_y, next_x)) = next_cell {
-            match x as i32 - *next_x as i32 {
-                1 => {
-                    grid[y][x].connections.0 = true;
-                    grid[y][*next_x].connections.2 = true;
-                },
-
-                -1 => {
-                    grid[y][x].connections.2 = true;
-                    grid[y][*next_x].connections.0 = true;
-                },
-
-                _ => {},
-            } 
-
-            match y as i32 - *next_y as i32 {
-                1 => {
-                    grid[y][x].connections.1 = true;
-                    grid[*next_y][x].connections.3 = true;
-                },
-
-                -1 => {
-                    grid[y][x].connections.3 = true;
-                    grid[*next_y][x].connections.1 = true;
-                },
-
-                _ => {},
-            }
-
-            randomize(grid, (*next_y, *next_x))
+    for (next_y, next_x) in neighbor_cells {
+        if grid[next_y][next_x].visited {
+            continue;
         }
-    }
 
+        if x > next_x {
+            grid[y][x].connections.0 = true;
+            grid[y][next_x].connections.2 = true;
+        } else if x < next_x {
+            grid[y][x].connections.2 = true;
+            grid[y][next_x].connections.0 = true;
+        }
+
+        if y > next_y {
+            grid[y][x].connections.1 = true;
+            grid[next_y][x].connections.3 = true;
+        } else if y < next_y {
+            grid[y][x].connections.3 = true;
+            grid[next_y][x].connections.1 = true;
+        }
+
+        randomize(grid, (next_y, next_x))
+    }
 }
 
 fn main() -> io::Result<()> {
@@ -261,13 +192,14 @@ fn main() -> io::Result<()> {
 
     let mut stdout = stdout();
 
-    execute!(stdout, terminal::EnterAlternateScreen)?;
-
     terminal::enable_raw_mode()?;
 
-    stdout.execute(terminal::Clear(terminal::ClearType::All))?;
-
-    queue!(stdout, style::SetBackgroundColor(style::Color::Blue))?;
+    execute!(
+        stdout,
+        terminal::EnterAlternateScreen,
+        terminal::Clear(ClearType::All),
+        style::SetBackgroundColor(style::Color::Blue)
+    )?;
 
     for x in LOW_X_BOUND..=UP_X_BOUND {
         for y in LOW_Y_BOUND..=UP_Y_BOUND {
@@ -305,11 +237,11 @@ fn main() -> io::Result<()> {
         for x in 0..25 {
             if (x == 0 || x == 24 || y == 0 || y == 8)
                 && !(x == enter.x && y == enter.y)
-                && !(x == exit.x && y == exit.y) {
-
+                && !(x == exit.x && y == exit.y)
+            {
                 string.push(Point {
                     x,
-                    y, 
+                    y,
                     maze: Maze::Wall,
                 });
 
@@ -321,24 +253,21 @@ fn main() -> io::Result<()> {
             } else {
                 string.push(Point {
                     x,
-                    y, 
+                    y,
                     maze: Maze::Path,
                 });
             }
-        
         }
         maze.push(string);
-
     }
 
     let mut grid: Vec<Vec<Cell>> = Vec::new();
 
-    for y in 0..4 {
+    for _ in 0..4 {
         let mut string: Vec<Cell> = Vec::new();
 
-        for x in 0..12 {
+        for _ in 0..12 {
             string.push(Cell {
-                borders: (x == 0, y == 0, x == 11, y == 3),
                 connections: (false, false, false, false),
                 visited: false,
             });
@@ -357,12 +286,12 @@ fn main() -> io::Result<()> {
             if !grid[y][x].connections.0 {
                 maze[y_global as usize][x_global as usize - 1] = Point {
                     x: x_global - 1,
-                    y: y_global, 
+                    y: y_global,
                     maze: Maze::Wall,
                 };
 
                 queue!(
-                    stdout, 
+                    stdout,
                     cursor::MoveTo(x_cursor + x_global - 1, y_cursor + y_global),
                     style::PrintStyledContent("0".blue())
                 )?;
@@ -413,7 +342,6 @@ fn main() -> io::Result<()> {
     }
 
     stdout.flush()?;
-
 
     x_cursor += 1;
     y_cursor += 1;
